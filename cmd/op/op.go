@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/BenLirio/op/pkg/util/cli"
+	"../../pkg/util/cli"
 )
 
 func main() {
