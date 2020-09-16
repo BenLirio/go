@@ -2,10 +2,12 @@ package browse
 
 import (
 	"fmt"
-	"net/http"
+	"os"
+	"strings"
 
 	"golang.org/x/net/html"
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/yaml"
 )
 
 func check(e error) {
@@ -22,38 +24,51 @@ var Cmd = &cobra.Command{
 	},
 }
 
-func Execute() {
-	resp, err := http.Get("https://www.nytimes.com/2020/09/14/technology/china-bytedance-tiktok-sale.html")
-	check(err)
-	tokenizer := html.NewTokenizer(resp.Body)
-	depth := 0
-	for {
-		tagType := tokenizer.Next()
-		fmt.Println(depth)
-		switch tagType {
-		case html.ErrorToken:
-			resp.Body.Close()
-			return
-		case html.StartTagToken, html.EndTagToken:
-			if tagType == html.StartTagToken {
-				if depth != 0 {
-					depth++
-				}
-			}
-			if tagType == html.EndTagToken {
-				if depth != 0 {
-					depth--
-					if depth == 0 {
-						fmt.Println("Done")
-					}
-				}
-			}
-			break
-		case html.TextToken:
-			if depth == 0 {
-				depth = 1
-			}
-			break
-		}
+type Document struct {
+	Title		string
+	Text		[]string
+}
+
+func decompose(n *html.Node) string {
+	text := ""
+	if n.Type == html.TextNode {
+		text = n.Data
 	}
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		text = fmt.Sprintf("%s%s", text, decompose(c))
+	}
+	return text
+}
+
+func Execute() {
+	var document Document
+	file, err := os.Open("index.html")
+	check(err)
+	doc, err := html.Parse(file)
+	check(err)
+	var f func(*html.Node) bool
+	f = func(n *html.Node) bool {
+		if n.Data == "title" {
+			document.Title = n.FirstChild.Data
+		}
+		if n.Type == html.TextNode {
+			if len(strings.Trim(n.Data, "\n\t")) > 0 {
+				document.Text = append(document.Text, decompose(n.Parent))
+				return false
+			}
+		}
+		more := true
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			if c.Data != "script" && c.Data != "style" {
+				if more == true {
+					more = f(c)
+				}
+			}
+		}
+		return true
+	}
+	f(doc)
+	y, err := yaml.Marshal(document)
+	check(err)
+	fmt.Println(string(y))
 }
