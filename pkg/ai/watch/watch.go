@@ -1,0 +1,65 @@
+package watch
+
+import (
+	"os"
+	"time"
+	"os/exec"
+	"strings"
+
+	"github.com/BenLirio/op/pkg/ai/watch/walk"
+
+	"github.com/spf13/cobra"
+)
+
+var Cmd = &cobra.Command{
+	Use: "watch",
+	Short: "watch files",
+	Run: func(cmd *cobra.Command, args []string) {
+		Execute()
+	},
+}
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+
+var folder string
+var script string
+
+func init() {
+	Cmd.Flags().StringVarP(&folder, "folder", "f", ".", "Folder to watch")
+	Cmd.Flags().StringVarP(&script, "script", "s", "", "Script to run")
+	Cmd.MarkFlagRequired("script")
+}
+
+func runScript() error {
+	args := strings.Split(script, " ")
+	goExecPath, err := exec.LookPath(args[0])
+	if err != nil {
+		return err
+	}
+	onChangeScript := &exec.Cmd {
+		Path: goExecPath,
+		Args: args,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+	}
+	onChangeScript.Run()
+	return nil
+}
+
+func Execute() {
+	err := walk.GetFileStats(folder)
+	check(err)
+	for {
+		diff, err := walk.CheckDiff()
+		check(err)
+		if diff {
+			err := runScript()
+			check(err)
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+}

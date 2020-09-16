@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/BenLirio/op"
+	"github.com/BenLirio/op/pkg/ai/cmd"
 )
 
 func main() {
