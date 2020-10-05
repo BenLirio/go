@@ -2,7 +2,7 @@ package browse
 
 import (
 	"fmt"
-	"os"
+	"net/http"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -24,6 +24,13 @@ var Cmd = &cobra.Command{
 	},
 }
 
+var url string
+
+func init() {
+	Cmd.Flags().StringVarP(&url, "url", "u", "", "Url to request")
+	Cmd.MarkFlagRequired("url")
+}
+
 type Document struct {
 	Title		string
 	Text		[]string
@@ -32,7 +39,7 @@ type Document struct {
 func decompose(n *html.Node) string {
 	text := ""
 	if n.Type == html.TextNode {
-		text = n.Data
+		text = strings.Trim(n.Data, "\n\t ")
 	}
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		text = fmt.Sprintf("%s%s", text, decompose(c))
@@ -42,30 +49,26 @@ func decompose(n *html.Node) string {
 
 func Execute() {
 	var document Document
-	file, err := os.Open("index.html")
+	resp, err := http.Get(url)
 	check(err)
-	doc, err := html.Parse(file)
+	doc, err := html.Parse(resp.Body)
 	check(err)
-	var f func(*html.Node) bool
-	f = func(n *html.Node) bool {
+	var f func(*html.Node)
+	f = func(n *html.Node) {
 		if n.Data == "title" {
 			document.Title = n.FirstChild.Data
-		}
-		if n.Type == html.TextNode {
-			if len(strings.Trim(n.Data, "\n\t")) > 0 {
-				document.Text = append(document.Text, decompose(n.Parent))
-				return false
-			}
-		}
-		more := true
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			if c.Data != "script" && c.Data != "style" {
-				if more == true {
-					more = f(c)
+		} else {
+			if n.Type == html.TextNode {
+				if len(strings.Trim(n.Data, "\n\t ")) > 0 {
+					document.Text = append(document.Text, decompose(n))
 				}
 			}
 		}
-		return true
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			if c.Data != "script" && c.Data != "style" {
+				f(c)
+			}
+		}
 	}
 	f(doc)
 	y, err := yaml.Marshal(document)

@@ -6,6 +6,7 @@ import (
 	"github.com/BenLirio/op/pkg/ai/yaml"
 	"github.com/BenLirio/op/pkg/ai/browse"
 	"github.com/BenLirio/op/pkg/ai/watch"
+	"github.com/BenLirio/op/pkg/ai/docker"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -22,6 +23,7 @@ func init() {
 	rootCmd.AddCommand(yaml.Cmd)
 	rootCmd.AddCommand(browse.Cmd)
 	rootCmd.AddCommand(watch.Cmd)
+	rootCmd.AddCommand(docker.Cmd)
 }
 
 var rootCmd = &cobra.Command{
